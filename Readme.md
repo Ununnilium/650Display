@@ -1,6 +1,6 @@
 # Display for BMW G 650 and F 650 Single 2004-2014 motorcycles
 
-This project reads rpm, speed, engine and intake temperature with an ELM327-compatible Bluetooth adapter and an ESP32 from the ECU. The data are shown on a SSD1306 0.96" 128×64 yellow/blue OLED display. It was tested with a G 650 Xchallenge, but the same ECU is used with [other BMW motorcyles](https://www.realoem.com/bmw/enUS/part?id=0176-EUR-04-2004-R13-BMW-F_650_GS_Dakar_04_0176,0186_&mg=13&sg=61&diagId=13_1119&q=13627714905).
+This project reads rpm, speed, engine and intake temperature with an ELM327-compatible Bluetooth adapter and an ESP32 from the ECU. The data are shown on a SSD1306 0.96" 128×64 yellow/blue OLED display. It was tested with a G 650 Xchallenge, but the same ECU is used in [other BMW motorcyles](https://www.realoem.com/bmw/enUS/part?id=0176-EUR-04-2004-R13-BMW-F_650_GS_Dakar_04_0176,0186_&mg=13&sg=61&diagId=13_1119&q=13627714905).
 
 ![ECU connector](img/finished.jpg)
 
