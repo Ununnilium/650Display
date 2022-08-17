@@ -97,7 +97,7 @@ void calc_gear() {
   if (speed_real == 0 || rpm_real == 0) {
     gear = 0;
   } else {
-    float current_ratio = (float)rpm_real / (float)(speed_real)
+    float current_ratio = (float)rpm_real / (float)(speed_real);
     uint8_t best_gear = 1;
     float best_diff = 1000;
     for (size_t i=0; i<sizeof(gear_ratios) / sizeof(gear_ratios[0]); i++) {
@@ -111,7 +111,7 @@ void calc_gear() {
   }
 }
 
-void updated_display() {
+void update_display() {
   static char voltage_str[30], rpm_str[5], speed_str[5];
   snprintf(voltage_str, 30, "%4.1fV %3.0f° %3.0f°", voltage_real, in_air_temp_real, engine_temp_real);
   snprintf(rpm_str, 5, "%4u", rpm_real);
@@ -169,7 +169,7 @@ void loop(void) {
   if (elm_command_sent) {
     if (elm327.get_response() == ELM_SUCCESS) {
       parse_payload();
-      updated_display();
+      update_display();
       elm_command_sent = false;
     } else if (elm327.nb_rx_state != ELM_GETTING_MSG) {
       print_elm_error();
