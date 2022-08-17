@@ -22,15 +22,17 @@
 #define ELM_WAKEUP_MSG_CMD "AT WM 81 12 F1 3E"
 #define ELM_INIT_BUS_CMD "81"
 #define ELM_READ_DATA_CMD "2110"
-#define MAX_RPM 8000
 #define DISPLAY_WIDTH 128
-#define WAIT_ELM_MS 100
+#define WAIT_ELM_MS 10000
 
+#define MAX_RPM 8000
 #define RPM_50_KMPH_1 6529.
 #define RPM_50_KMPH_2 4155.
 #define RPM_50_KMPH_3 3110.
 #define RPM_50_KMPH_4 2493.
 #define RPM_50_KMPH_5 2089.
+
+#define SHOW_GEAR_INSTEAD_RPM true
 
 uint8_t BLUETOOTH_ADAPTER_ADDRESS[] = {0x00, 0x1D, 0xA5, 0x22, 0x18, 0x32};  // Bluetooth address of ODB2 adapter, here 00:1d:a5:22:18:32. For Windows see https://www.addictivetips.com/windows-tips/find-bluetooth-mac-address-windows-10/
 
@@ -63,7 +65,7 @@ void setup(void) {
   u8g2.begin();
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_helvB14_tf);
-  u8g2.drawStr(0, 39, "Connecting ...");
+  u8g2.drawStr(0, 36, "Connecting ...");
   u8g2.sendBuffer();
 
   
@@ -89,10 +91,6 @@ void setup(void) {
   elm_command_sent = true;
 }
 
-unsigned int get_rpm_bar_length() {
-  return rpm_real * DISPLAY_WIDTH / MAX_RPM;
-}
-
 void calc_gear() {
   if (speed_real == 0 || rpm_real == 0) {
     gear = 0;
@@ -112,17 +110,35 @@ void calc_gear() {
 }
 
 void update_display() {
-  static char voltage_str[30], rpm_str[5], speed_str[5];
+  static char voltage_str[30], rpm_str[5], speed_str[5], gear_str[2];
   snprintf(voltage_str, 30, "%4.1fV %3.0f° %3.0f°", voltage_real, in_air_temp_real, engine_temp_real);
-  snprintf(rpm_str, 5, "%4u", rpm_real);
+  snprintf(rpm_str, 5, "%3.1f", rpm_real/1000.);
   snprintf(speed_str, 4, "%3u", speed_real);
+  if (gear == 0) {
+    gear_str[0] = '\n';
+  } else {
+    snprintf(gear_str, 2, "%u", gear);
+  }
+  unsigned int rpm_bar_length = rpm_real * DISPLAY_WIDTH / MAX_RPM;
+  
   
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_helvB14_tf);
   u8g2.drawUTF8(0, 14, voltage_str);
-  u8g2.drawBox(0, 17, get_rpm_bar_length(), 7);
-  u8g2.setFont(u8g2_font_logisoso24_tn );
-  u8g2.drawStr(0,64, rpm_str);
+  u8g2.drawBox(0, 17, rpm_bar_length, 6);
+
+  u8g2.setDrawColor(0);
+  for (size_t i=31; i<rpm_bar_length; i+=32) {
+    u8g2.drawBox(i, 17, 2, 6);
+  }
+  u8g2.setDrawColor(1);
+
+  u8g2.setFont(u8g2_font_logisoso34_tn );
+  u8g2.drawStr(0 ,64, gear_str);
+
+  u8g2.setFont(u8g2_font_logisoso22_tn );
+  u8g2.drawStr(24, 58, rpm_str);
+
   u8g2.setFont(u8g2_font_logisoso38_tn );
   u8g2.drawStr(58 ,64, speed_str);
   u8g2.sendBuffer();
