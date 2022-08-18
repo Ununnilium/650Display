@@ -4,9 +4,10 @@ This project reads rpm, speed, engine and intake temperature with an ELM327-comp
 
 ![ECU connector](img/finished.jpg)
 
+![ECU connector](img/final_new.jpg)
 ## Future ideas
 
-The current gear could be displayed (at the moment no more space in the display). For powering the ESP32 directly from the motorcycle, a cheap car USB charger could be opened and connected to VIN of ESP32.
+For powering the ESP32 directly from the motorcycle, a 5V automotive converter with overvoltage protection like [this](https://www.aliexpress.com/item/1005003803774587.html) could be connected to VIN of ESP32.
 
 # Used materials
 

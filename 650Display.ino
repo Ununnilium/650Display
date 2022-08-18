@@ -23,7 +23,7 @@
 #define ELM_INIT_BUS_CMD "81"
 #define ELM_READ_DATA_CMD "2110"
 #define DISPLAY_WIDTH 128
-#define WAIT_ELM_MS 10000
+#define WAIT_ELM_MS 100
 
 #define MAX_RPM 8000
 #define RPM_50_KMPH_1 6529.
