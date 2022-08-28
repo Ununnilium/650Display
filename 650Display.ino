@@ -1,5 +1,5 @@
 #define TFT_DISPLAY
-// #define DRY_RUN
+//#define DRY_RUN
 
 #include <Arduino.h>
 #include <BluetoothSerial.h>
@@ -11,12 +11,12 @@
 #ifdef TFT_DISPLAY
   #include <SPI.h>
   #include <TFT_eSPI.h>
-  #include "fonts/PTSansNarrowBold22.h"
-  #include "fonts/PTSansRegular42.h"
-  #include "fonts/PTSansBold54.h"
-  #define AA_FONT_SMALL PTSansNarrowBold22
-  #define AA_FONT_MEDIUM PTSansRegular42
-  #define AA_FONT_LARGE PTSansBold54
+  #include "fonts/PTSansNarrowBold40.h"
+  #include "fonts/PTSansNarrowNumbers60.h"
+  #include "fonts/PTSansNarrowNumbersBold85.h"
+  #define AA_FONT_SMALL PTSansNarrowBold40
+  #define AA_FONT_MEDIUM PTSansNarrowNumbers60
+  #define AA_FONT_LARGE PTSansNarrowNumbersBold85
 #else
   #include <U8g2lib.h>
 #endif
@@ -41,7 +41,8 @@
 #define ELM_START_COMMUNICATION_CMD "81"  // ISO 14230 Part 2: StartCommunication has the hex value of 81
 #define ELM_READ_DATA_CMD "2110"  // ISO 14230 Part 3: "21" is hex value of readDataByLocalIdentifier, "10" is the BMW F/G650 number to return all ECU live data
 
-#define DISPLAY_WIDTH 128
+#define DISPLAY_WIDTH 320
+#define DISPLAY_HEIGHT 172
 
 #define LOOP_WAIT_TIME_MS 100  // interval to update data
 
@@ -64,10 +65,10 @@ uint8_t BLUETOOTH_ADAPTER_ADDRESS[] = {0x00, 0x1D, 0xA5, 0x22, 0x18, 0x32};  // 
 #ifdef TFT_DISPLAY
   #define COLOUR_BACKGROUND TFT_BLACK
   #define COLOUR_MAIN TFT_WHITE
-  #define COLOUR_GREEN 0x87f2
-  #define COLOUR_YELLOW 0xffec
-  #define COLOUR_BLUE 0x9e1e
-  #define COLOUR_RED 0xfbef
+  #define COLOUR_GREEN 0xaff6
+  #define COLOUR_YELLOW 0xf7f7
+  #define COLOUR_BLUE 0xbfff
+  #define COLOUR_RED 0xfdd7
 
   TFT_eSPI tft = TFT_eSPI(); // Connect SCK to D18 and set TFT_SCLK in User_setup.h to 18, connect SDA to D23 and set TFT_MOSI to 23, connect RES to RES and set TFT_RST to -1, connect RS to D2 and set TFT_DC to D2, connect CS to D21 and set TFT_CS to 21, Connect LDEA to 3V3 
 #else
@@ -92,7 +93,7 @@ bool elm_command_sent = false;
 
 
 void setup(void) {
-  Serial.begin(115200);
+   Serial.begin(115200);
 
   #ifdef TFT_DISPLAY
     // set up dimming of LCD background light 
@@ -101,11 +102,11 @@ void setup(void) {
     ledcWrite(LED_CHANNEL, 255);  // at start, use full brightness
     
     tft.begin();
-    tft.setRotation(0);
+    tft.setRotation(3);
     tft.loadFont(AA_FONT_SMALL);
     tft.fillScreen(COLOUR_BACKGROUND);
     tft.setTextColor(COLOUR_MAIN, COLOUR_BACKGROUND, true);
-    tft.setCursor(5, 75);
+    tft.setCursor(5, 80);
     tft.println("Connecting ...");
     tft.unloadFont();
   #else
@@ -146,7 +147,7 @@ void setup(void) {
 
 #ifdef TFT_DISPLAY
   void adjust_brightness() {
-    static const uint8_t dimmed_lcd_value = 20;  // 0==dark, 255==full brighness
+    static const uint8_t dimmed_lcd_value = 10;  // 0==dark, 255==full brighness
     static const int low_light_threshold  = 50;
     static const int bright_light_threshold  = 400;
     static const uint32_t wait_time_ms = 2000;  // after the light value moves behind the threshold, we also wait to prevent flickering when driving under street lights
@@ -203,31 +204,43 @@ uint8_t get_gear() {
 
 void update_display() {
   //ecu_rpm = analogRead(LIGHT_SENSOR_PIN);  // debug
-  unsigned int rpm_bar_length = ecu_rpm * DISPLAY_WIDTH / MAX_RPM;
+  unsigned int rpm_bar_length = ecu_rpm * DISPLAY_HEIGHT / MAX_RPM;
+  static char gear_str[2];
+  uint8_t gear = get_gear();
+  if (gear == 0) {
+    gear_str[0] = '\n';
+  } else {
+    snprintf(gear_str, 2, "%u", gear);
+  }
 
   #ifdef TFT_DISPLAY
-    static const uint8_t first_line_y = 20;
-    static const uint8_t second_line_y = 44;
-    static const uint8_t rpm_line_y = 72;
-    static const uint8_t rpm_bar_height = 15;
-    static const float delta_rpm_bar = -255.0 / DISPLAY_WIDTH;
+    static const uint8_t rpm_bar_padding = 0;
+    static const uint8_t first_line_y = 0;
+    static const uint8_t second_line_y = 113;
+    static const uint8_t rpm_line_y = 27;
+    static const uint8_t speed_line_y = DISPLAY_HEIGHT - 93;
+    static const uint8_t rpm_bar_thickness = 40;  // must be even
+    static const float delta_rpm_bar = -255.0 / DISPLAY_HEIGHT;
     static const uint16_t colour1_rpm_bar = COLOUR_BLUE;
     static const uint16_t colour2_rpm_bar = TFT_RED;
-    static const uint8_t sep_width = DISPLAY_WIDTH / ceil(MAX_RPM / 2000.);
-
-    static char gear_str[2];
-    uint8_t gear = get_gear();
-    if (gear == 0) {
-      gear_str[0] = '\n';
-    } else {
-      snprintf(gear_str, 2, "%u", gear);
-    }
+    static const uint8_t sep_width = DISPLAY_HEIGHT / ceil(MAX_RPM / 2000.);
 
     // RPM bar
     float alpha_rpm_bar = 255.;
     uint16_t colour = colour1_rpm_bar;
+    static const uint8_t radius = rpm_bar_thickness / 2;
+    uint8_t current_width;
+    uint8_t current_x;
     for (size_t i=0; i<rpm_bar_length; i++) {
-      tft.drawFastVLine(i, 0, rpm_bar_height, colour);
+      if (current_width < rpm_bar_thickness) {
+        current_width = round(sqrt(radius * radius - (radius - i) * (radius - i)) * 2);
+        current_x = (rpm_bar_thickness - current_width) / 2 + rpm_bar_padding;
+      } else {
+        current_width = rpm_bar_thickness;
+        current_x = rpm_bar_padding;
+      }
+      uint16_t y = DISPLAY_HEIGHT - i;
+      tft.drawFastHLine(current_x, y, current_width, colour);
       uint8_t at_sep_pos = i % (sep_width - 1);  // seperator lines
       alpha_rpm_bar += delta_rpm_bar;
       if (i > 1 && (at_sep_pos == 0 || at_sep_pos == 1)) {
@@ -236,7 +249,8 @@ void update_display() {
         colour = tft.alphaBlend((uint8_t)alpha_rpm_bar, colour1_rpm_bar, colour2_rpm_bar);
       }
     }
-    tft.fillRect(rpm_bar_length, 0, DISPLAY_WIDTH, rpm_bar_height, COLOUR_BACKGROUND);
+    tft.fillRect(rpm_bar_padding, 0, rpm_bar_thickness, DISPLAY_HEIGHT - rpm_bar_length, COLOUR_BACKGROUND);
+    
     tft.loadFont(AA_FONT_SMALL);
 
     // voltage
@@ -249,11 +263,12 @@ void update_display() {
     }
     tft.setTextPadding(tft.textWidth("12.0"));
     tft.setTextDatum(TR_DATUM);
-    tft.drawFloat(ecu_voltage, 1, 40, first_line_y);
+    static const uint16_t distance_from_bar = 3;
+    tft.drawFloat(ecu_voltage, 1, 68 + rpm_bar_padding + rpm_bar_thickness + distance_from_bar, first_line_y);
     tft.setTextPadding(0);
 
     tft.setTextDatum(TL_DATUM);
-    tft.drawString("V", 46, first_line_y);
+    tft.drawString("V", 68 + rpm_bar_padding + rpm_bar_thickness + distance_from_bar, first_line_y);
     
     // intake temp
     if (ecu_intake_air_temp < 6) {
@@ -263,11 +278,11 @@ void update_display() {
     }
     tft.setTextPadding(tft.textWidth("105"));
     tft.setTextDatum(TR_DATUM);
-    tft.drawFloat(ecu_intake_air_temp, 0, 107, first_line_y);
+    tft.drawFloat(ecu_intake_air_temp, 0, 142 + rpm_bar_padding + rpm_bar_thickness + distance_from_bar, first_line_y);
     tft.setTextPadding(0);
     
     tft.setTextDatum(TR_DATUM);
-    tft.drawString("°C", 128, first_line_y);
+    tft.drawString("°C", 174  + rpm_bar_padding + rpm_bar_thickness + distance_from_bar, first_line_y);
 
     // engine temp
     if (ecu_engine_temp < 75) {
@@ -279,38 +294,39 @@ void update_display() {
     }
     tft.setTextPadding(tft.textWidth("105"));
     tft.setTextDatum(TR_DATUM);
-    tft.drawFloat(ecu_engine_temp, 0, 36, second_line_y);
+    tft.drawFloat(ecu_engine_temp, 0, 231 + rpm_bar_padding + rpm_bar_thickness + distance_from_bar, first_line_y);
     tft.setTextPadding(0);
     
-    tft.setTextDatum(TL_DATUM);
-    tft.drawString("°C", 38, second_line_y);
+    tft.setTextDatum(TR_DATUM);
+    tft.drawString("°C", DISPLAY_WIDTH - 7, first_line_y);
 
     // rpm
     tft.unloadFont();
     tft.loadFont(AA_FONT_MEDIUM);
     
-    tft.setTextColor(COLOUR_MAIN, COLOUR_BACKGROUND, true);
+    tft.setTextColor(COLOUR_MAIN, COLOUR_BACKGROUND, false);
     tft.setTextDatum(TR_DATUM);
-    tft.setTextPadding(tft.textWidth("14444"));
-    tft.drawNumber(ecu_rpm, 110, rpm_line_y, 55);
+    tft.setTextPadding(tft.textWidth("4444"));
+//    tft.fillRect(rpm_bar_padding + rpm_bar_thickness + distance_from_bar, rpm_line_y+7, DISPLAY_WIDTH, 75, TFT_NAVY);
+    tft.drawNumber(ecu_rpm, 120 + rpm_bar_padding + rpm_bar_thickness + distance_from_bar, rpm_line_y, 172);
     
-    tft.setTextColor(COLOUR_BLUE, COLOUR_BACKGROUND, true);
+    tft.setTextColor(COLOUR_BLUE, COLOUR_BACKGROUND, false);
 
     // fixes problem that old figures are not overwritten because "1" is less height than 0
-    tft.drawFastHLine(0, 119, DISPLAY_WIDTH, COLOUR_BACKGROUND);
+//    tft.drawFastHLine(0, 119, DISPLAY_WIDTH, COLOUR_BACKGROUND);
     
     // speed
     tft.unloadFont();
     tft.loadFont(AA_FONT_LARGE);
     tft.setTextDatum(TR_DATUM);
     tft.setTextPadding(tft.textWidth("100"));
-    tft.drawNumber(ecu_speed, 88, 120);
+    tft.drawNumber(ecu_speed, 285, speed_line_y);
 
     // gear
-    tft.setTextColor(COLOUR_MAIN, COLOUR_BACKGROUND, true);
+    tft.setTextColor(COLOUR_MAIN, COLOUR_BACKGROUND, false);
     tft.setTextDatum(TR_DATUM);
-    tft.setTextPadding(tft.textWidth("0"));
-    tft.drawString(gear_str, 128, 120);
+    tft.setTextPadding(tft.textWidth("4"));
+    tft.drawString(gear_str, DISPLAY_WIDTH, rpm_line_y);
     
     tft.unloadFont();
 
@@ -323,7 +339,7 @@ void update_display() {
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_helvB14_tf);
     u8g2.drawUTF8(0, 14, voltage_str);
-    u8g2.drawBox(0, 17, rpm_bar_length, 6);
+    u8g2.drawBox(0, 17, rpm_bar_thickness, 6);
   
     u8g2.setDrawColor(0);
     for (size_t i=31; i<rpm_bar_length; i+=32) {
@@ -398,6 +414,73 @@ void print_elm_error() {
 }
 
 void loop(void) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
   #ifdef TFT_DISPLAY
     adjust_brightness();
   #endif
